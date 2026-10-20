@@ -48,6 +48,10 @@ class BaiduFileTransfer(object):
         return dir_list, file_list
 
     async def transfer_files(self, file_list, target_path):
+        if target_path:
+            # A folder containing more than the per-request limit is transferred
+            # file by file, and its destination directory may not exist yet.
+            await self._api.create_directory(target_path)
         max_transfer_count = 500
         offset = 0
         while offset < len(file_list):
@@ -96,6 +100,16 @@ class BaiduFileTransfer(object):
                     self._user_id,
                     self._share_id,
                     dir_path,
+                )
+                utils.logger.warning(
+                    "[%s] Fallback: directory %s exceeds the transfer limit, "
+                    "transferring %d subdirectories and %d files separately"
+                    % (
+                        self.__class__.__name__,
+                        dir_paths[0],
+                        len(dir_list),
+                        len(file_list),
+                    )
                 )
                 if dir_list:
                     await self.transfer_dirs(dir_list, target_path + "/" + dir["name"])

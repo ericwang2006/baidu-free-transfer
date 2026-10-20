@@ -140,15 +140,29 @@ class BaiduYunPanAPI(object):
 
     async def list_share_dir(self, user_id, share_id, dir_path):
         path = "/share/list"
-        params = {
-            "uk": user_id,
-            "shareid": share_id,
-            "page": "1",
-            "num": "1000",
-            "dir": dir_path,
-        }
-        rsp = await self.request(path, params=params)
-        return self._process_dir_file_list(rsp["list"])
+        # The server caps a response at 100 entries no matter what `num` is,
+        # so keep requesting pages until a page comes back not full.
+        page_size = 100
+        page = 1
+        dir_list = []
+        file_list = []
+        while True:
+            params = {
+                "uk": user_id,
+                "shareid": share_id,
+                "page": str(page),
+                "num": str(page_size),
+                "dir": dir_path,
+            }
+            rsp = await self.request(path, params=params)
+            items = rsp["list"]
+            page_dirs, page_files = self._process_dir_file_list(items)
+            dir_list.extend(page_dirs)
+            file_list.extend(page_files)
+            if len(items) < page_size:
+                break
+            page += 1
+        return dir_list, file_list
 
     async def list_dir(self, dir_path):
         path = "/api/list"
