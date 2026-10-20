@@ -197,6 +197,13 @@ class BaiduYunPanAPI(object):
             path, "post", params=params, data=data, check_errno=False
         )
         if rsp["errno"] == 12:
+            # errno 12 also covers "not enough free space", which has no
+            # target_file_nums_limit field. Only the file-count case can be
+            # fixed by splitting the transfer into smaller batches.
+            if "target_file_nums_limit" not in rsp:
+                raise utils.BaiduYunPanAPIError(
+                    rsp["errno"], rsp.get("show_msg") or "Transfer failed"
+                )
             raise utils.TransferLimitExceededError(
                 rsp["target_file_nums_limit"], rsp["target_file_nums"]
             )
